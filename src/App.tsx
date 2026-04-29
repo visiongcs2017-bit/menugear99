@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import {
+  Star,
+  TrendingUp,
+  HelpCircle,
+  AlertTriangle,
+  Home,
+  Upload,
+  List,
+  BarChart3,
+  SlidersHorizontal,
+  Globe,
+  Settings,
+} from "lucide-react";
 
 type MenuItem = {
   name: string;
@@ -130,27 +143,58 @@ function getAverages(items: MenuItem[]) {
 
 function classify(item: MenuItem, items: MenuItem[]) {
   const { avgUnits, avgMargin } = getAverages(items);
-  const margin = metrics(item).margin;
+  const m = metrics(item);
 
-  if (margin >= avgMargin && item.unitsSold >= avgUnits) return "⭐ Star";
-  if (margin < avgMargin && item.unitsSold >= avgUnits) return "🐄 Plowhorse";
-  if (margin >= avgMargin && item.unitsSold < avgUnits) return "❓ Puzzle";
-  return "🐶 Dog";
+  const highSales = item.unitsSold >= avgUnits;
+  const highMargin = m.margin >= avgMargin;
+
+  if (highSales && highMargin) return "Star";
+  if (highSales && !highMargin) return "Plowhorse";
+  if (!highSales && highMargin) return "Puzzle";
+  return "Dog";
 }
 
-function recommendation(item: MenuItem, items: MenuItem[]) {
+function cleanClassName(value: string) {
+  if (value.includes("Star")) return "Star";
+  if (value.includes("Plowhorse")) return "Plowhorse";
+  if (value.includes("Puzzle")) return "Puzzle";
+  return "Dog";
+}
+
+function ClassBadge({ value }: { value: string }) {
+  const clean = cleanClassName(value);
+
+  const icon =
+    clean === "Star" ? (
+      <Star className="w-4 h-4 text-yellow-500" />
+    ) : clean === "Plowhorse" ? (
+      <TrendingUp className="w-4 h-4 text-blue-500" />
+    ) : clean === "Puzzle" ? (
+      <HelpCircle className="w-4 h-4 text-purple-500" />
+    ) : (
+      <AlertTriangle className="w-4 h-4 text-red-500" />
+    );
+
+  return (
+    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border text-sm font-semibold shadow-sm">
+      {icon}
+      {clean}
+    </span>
+  );
+}
+  function recommendation(item: MenuItem, items: MenuItem[]) {
   const itemClass = classify(item, items);
   const margin = metrics(item).margin;
 
-  if (itemClass.includes("Plowhorse")) {
+  if (itemClass === "Plowhorse") {
     return "High sales but weak margin. Test a small price increase or reduce recipe cost.";
   }
 
-  if (itemClass.includes("Puzzle")) {
+  if (itemClass === "Puzzle") {
     return "Good margin but low sales. Improve photo, description, menu position, or combo offer.";
   }
 
-  if (itemClass.includes("Dog")) {
+  if (itemClass === "Dog") {
     return "Low sales and weak margin. Review recipe, pricing, portion size, or consider removal.";
   }
 
@@ -160,45 +204,30 @@ function recommendation(item: MenuItem, items: MenuItem[]) {
 
   return "Stable item. Monitor weekly cost and sales trend.";
 }
+
 function aiPricingSuggestion(item: MenuItem, items: MenuItem[]) {
   const m = metrics(item);
   const itemClass = classify(item, items);
 
-  const priceUp2 = {
-    sellingPrice: item.sellingPrice + 2,
-    recipeCost: item.recipeCost,
-    unitsSold: item.unitsSold,
-    name: item.name,
-    category: item.category,
-  };
+  const priceUp2 = { ...item, sellingPrice: item.sellingPrice + 2 };
+  const costDown5 = { ...item, recipeCost: item.recipeCost * 0.95 };
 
-  const costDown5 = {
-    ...item,
-    recipeCost: item.recipeCost * 0.95,
-  };
+  const marginUp = metrics(priceUp2).margin;
+  const marginDown = metrics(costDown5).margin;
 
-  const marginAfterPriceUp = metrics(priceUp2).margin;
-  const marginAfterCostDown = metrics(costDown5).margin;
-
-  if (itemClass.includes("Plowhorse")) {
-    return `AI Suggestion: Test SAR +2 price. Margin may improve from ${m.margin.toFixed(
-      1
-    )}% to ${marginAfterPriceUp.toFixed(1)}%. Also negotiate recipe cost by 5%.`;
+  if (itemClass === "Plowhorse") {
+    return `AI Suggestion: Increase price by SAR 2. Margin improves from ${m.margin.toFixed(1)}% to ${marginUp.toFixed(1)}%.`;
   }
 
-  if (itemClass.includes("Puzzle")) {
-    return `AI Suggestion: Keep price stable. Improve visibility. If sales increase by 20%, profit may increase by SAR ${(
-      m.profit * 0.2
-    ).toFixed(0)}.`;
+  if (itemClass === "Puzzle") {
+    return `AI Suggestion: Improve visibility. If sales increase by 20%, profit increases by SAR ${(m.profit * 0.2).toFixed(0)}.`;
   }
 
-  if (itemClass.includes("Dog")) {
-    return `AI Suggestion: Redesign item. A 5% recipe cost reduction improves margin from ${m.margin.toFixed(
-      1
-    )}% to ${marginAfterCostDown.toFixed(1)}%. Consider removal if no demand improvement.`;
+  if (itemClass === "Dog") {
+    return `AI Suggestion: Reduce cost by 5%. Margin improves from ${m.margin.toFixed(1)}% to ${marginDown.toFixed(1)}%. Consider removing item.`;
   }
 
-  return `AI Suggestion: Protect this item. Avoid discounting. Test bundle offers instead of reducing price.`;
+  return "AI Suggestion: Maintain pricing. Use bundle strategy instead of discounting.";
 }
 function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -502,13 +531,16 @@ function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="p-4 max-w-7xl mx-auto">{children}</main>
 
-      <nav className="fixed bottom-3 left-3 right-3 bg-white/95 backdrop-blur border rounded-3xl grid grid-cols-6 text-xs shadow-2xl overflow-hidden">
+      <nav className="fixed bottom-3 left-3 right-3 bg-white/95 backdrop-blur border rounded-3xl grid grid-cols-7 text-xs shadow-2xl overflow-hidden">
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/">Dashboard</Link>
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/upload">Upload</Link>
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/menu-items">Items</Link>
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/analytics">Matrix</Link>
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/sensitivity">
           Simulator
+        </Link>
+        <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/gcc-intelligence">
+          GCC AI
         </Link>
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/settings">More</Link>
       </nav>
@@ -571,7 +603,9 @@ function SummaryTable({ items }: { items: MenuItem[] }) {
                   SAR {m.profit.toLocaleString()}
                 </td>
                 <td className="p-3">{m.margin.toFixed(1)}%</td>
-                <td className="p-3 font-semibold">{classify(item, items)}</td>
+                <td className="p-3 font-semibold">
+                  <ClassBadge value={classify(item, items)} />
+                </td>
               </tr>
             );
           })}
@@ -1107,6 +1141,246 @@ function Analytics() {
     </Layout>
   );
 }
+function GCCIntelligence() {
+  const company = getCompany();
+  const items = aggregateItems(getItems());
+
+  const [eventType, setEventType] = useState("Normal Week");
+  const [dayType, setDayType] = useState("Weekday");
+
+  const highMarginItems = items.filter((item) => metrics(item).margin >= 60);
+  const lowMarginItems = items.filter((item) => metrics(item).margin < 50);
+  const highVolumeItems = items.filter((item) => item.unitsSold >= getAverages(items).avgUnits);
+
+  function cityInsight() {
+    if (!company) return "Complete company setup to activate GCC insights.";
+
+    if (company.city === "Riyadh") {
+      return "Riyadh customers respond well to premium positioning, family dining, coffee culture, desserts, and strong delivery packaging.";
+    }
+
+    if (company.city === "Jeddah") {
+      return "Jeddah has strong demand for seafood, casual dining, family platters, cafés, and relaxed dining concepts.";
+    }
+
+    if (company.city === "Dubai") {
+      return "Dubai rewards strong presentation, fusion concepts, premium pricing, tourist-friendly menus, and delivery convenience.";
+    }
+
+    if (company.city === "Doha") {
+      return "Doha generally supports premium café, luxury dining, family concepts, and strong hospitality-led presentation.";
+    }
+
+    return "Your city profile can be expanded with more local intelligence as market data is collected.";
+  }
+
+  function eventRecommendation() {
+    if (eventType === "Ramadan") {
+      return "Focus on Iftar bundles, family sharing meals, desserts, beverages, and pre-order packages. Avoid deep discounting on hero items.";
+    }
+
+    if (eventType === "Eid") {
+      return "Push premium family boxes, gifting desserts, catering packs, and celebration bundles with limited-time pricing.";
+    }
+
+    if (eventType === "Saudi National Day") {
+      return "Create patriotic themed bundles, limited menu items, and social-media-friendly offers. Use short campaign windows.";
+    }
+
+    if (eventType === "School Holiday") {
+      return "Promote family meals, kids-friendly bundles, delivery offers, and afternoon café/dessert traffic.";
+    }
+
+    if (dayType === "Weekend") {
+      return "Weekend demand usually supports bundles instead of direct discounting. Test small premium pricing on high-margin best sellers.";
+    }
+
+    return "Normal weeks are best for testing small price changes, menu placement changes, and supplier cost improvements.";
+  }
+
+  function itemSpecificSuggestion(item: MenuItem) {
+    const m = metrics(item);
+
+    if (eventType === "Ramadan" && item.category.toLowerCase().includes("dessert")) {
+      return "Strong Ramadan candidate: consider dessert box, Iftar add-on, or bundle with coffee.";
+    }
+
+    if (dayType === "Weekend" && m.margin >= 60) {
+      return "Weekend opportunity: protect margin and test bundle pricing instead of discounting.";
+    }
+
+    if (m.margin < 50) {
+      return "Cost pressure item: negotiate supplier cost, reduce waste, adjust portion, or increase price carefully.";
+    }
+
+    if (item.unitsSold >= getAverages(items).avgUnits) {
+      return "High-demand item: use as anchor item in combos and delivery campaigns.";
+    }
+
+    return "Monitor weekly trend and test better placement or description.";
+  }
+
+  return (
+    <Layout>
+      <h2 className="text-3xl font-extrabold text-tealDeep mb-2">
+        GCC Market Intelligence
+      </h2>
+
+      <p className="text-darkGray mb-6">
+        Localized F&B decision support based on country, city, segment, cuisine, event timing, and menu performance.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+        <div className="bg-white p-5 rounded-3xl shadow">
+          <p className="text-sm text-slate-500">Company Location</p>
+          <p className="text-2xl font-extrabold text-tealDeep">
+            {company?.city || "Not set"}
+          </p>
+          <p className="text-sm text-slate-500">{company?.country}</p>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl shadow">
+          <p className="text-sm text-slate-500">Segment</p>
+          <p className="text-2xl font-extrabold text-tealDeep">
+            {company?.segment || "Not set"}
+          </p>
+          <p className="text-sm text-slate-500">{company?.cuisine}</p>
+        </div>
+
+        <div className="bg-white p-5 rounded-3xl shadow">
+          <p className="text-sm text-slate-500">Menu Intelligence</p>
+          <p className="text-2xl font-extrabold text-tealDeep">
+            {items.length} Items
+          </p>
+          <p className="text-sm text-slate-500">
+            {highMarginItems.length} high margin items
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow mb-6">
+        <h3 className="font-bold text-xl text-tealDeep mb-4">
+          Scenario Settings
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block font-bold mb-2">Business Period</label>
+            <select
+              className="border p-3 rounded-xl w-full"
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value)}
+            >
+              <option>Normal Week</option>
+              <option>Ramadan</option>
+              <option>Eid</option>
+              <option>Saudi National Day</option>
+              <option>School Holiday</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-bold mb-2">Day Type</label>
+            <select
+              className="border p-3 rounded-xl w-full"
+              value={dayType}
+              onChange={(e) => setDayType(e.target.value)}
+            >
+              <option>Weekday</option>
+              <option>Weekend</option>
+              <option>Holiday</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+        <div className="bg-white p-6 rounded-3xl shadow border-l-4 border-goldWarm">
+          <h3 className="font-bold text-xl mb-2">City Insight</h3>
+          <p className="text-darkGray">{cityInsight()}</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl shadow border-l-4 border-tealDeep">
+          <h3 className="font-bold text-xl mb-2">Event Recommendation</h3>
+          <p className="text-darkGray">{eventRecommendation()}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-6">
+        <div className="bg-emerald-100 p-5 rounded-3xl shadow">
+          <h3 className="font-extrabold text-xl mb-2">High Margin Opportunities</h3>
+          {highMarginItems.length ? (
+            highMarginItems.slice(0, 5).map((item) => (
+              <p key={item.name} className="font-semibold">
+                • {item.name} — {metrics(item).margin.toFixed(1)}%
+              </p>
+            ))
+          ) : (
+            <p>No high margin items yet.</p>
+          )}
+        </div>
+
+        <div className="bg-yellow-100 p-5 rounded-3xl shadow">
+          <h3 className="font-extrabold text-xl mb-2">High Volume Anchors</h3>
+          {highVolumeItems.length ? (
+            highVolumeItems.slice(0, 5).map((item) => (
+              <p key={item.name} className="font-semibold">
+                • {item.name} — {item.unitsSold} units
+              </p>
+            ))
+          ) : (
+            <p>No high volume items yet.</p>
+          )}
+        </div>
+
+        <div className="bg-red-100 p-5 rounded-3xl shadow">
+          <h3 className="font-extrabold text-xl mb-2">Cost Pressure Items</h3>
+          {lowMarginItems.length ? (
+            lowMarginItems.slice(0, 5).map((item) => (
+              <p key={item.name} className="font-semibold">
+                • {item.name} — {metrics(item).margin.toFixed(1)}%
+              </p>
+            ))
+          ) : (
+            <p>No major cost pressure items.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl shadow overflow-x-auto">
+        <div className="p-5 border-b">
+          <h3 className="font-bold text-xl text-tealDeep">
+            Item-Level GCC Suggestions
+          </h3>
+        </div>
+
+        <table className="w-full text-sm">
+          <thead className="bg-tealDeep text-white">
+            <tr>
+              <th className="p-3 text-left">Item</th>
+              <th className="p-3 text-left">Category</th>
+              <th className="p-3 text-left">Margin</th>
+              <th className="p-3 text-left">Units</th>
+              <th className="p-3 text-left">GCC Suggestion</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={index} className="border-b">
+                <td className="p-3 font-semibold">{item.name}</td>
+                <td className="p-3">{item.category}</td>
+                <td className="p-3">{metrics(item).margin.toFixed(1)}%</td>
+                <td className="p-3">{item.unitsSold}</td>
+                <td className="p-3">{itemSpecificSuggestion(item)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Layout>
+  );
+}
 function SensitivitySimulator() {
   const [items] = useState<MenuItem[]>(aggregateItems(getItems()));
   const [selectedItemName, setSelectedItemName] = useState(items[0]?.name || "");
@@ -1326,6 +1600,7 @@ export default function App() {
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/menu-items" element={<MenuItems />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/gcc-intelligence" element={<GCCIntelligence />} />
             <Route path="/sensitivity" element={<SensitivitySimulator />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Dashboard />} />
