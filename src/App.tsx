@@ -1,5 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
 import {
   Star,
   TrendingUp,
@@ -531,7 +547,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 
       <main className="p-4 max-w-7xl mx-auto">{children}</main>
 
-      <nav className="fixed bottom-3 left-3 right-3 bg-white/95 backdrop-blur border rounded-3xl grid grid-cols-7 text-xs shadow-2xl overflow-hidden">
+      <nav className="fixed bottom-3 left-3 right-3 bg-white/95 backdrop-blur border rounded-3xl grid grid-cols-8 text-xs shadow-2xl overflow-hidden">
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/">Dashboard</Link>
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/upload">Upload</Link>
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/menu-items">Items</Link>
@@ -542,6 +558,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/gcc-intelligence">
           GCC AI
         </Link>
+        <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/report">Report</Link>
         <Link className="p-3 text-center text-tealDeep hover:bg-slate-100" to="/settings">More</Link>
       </nav>
     </div>
@@ -566,6 +583,7 @@ function Kpi({
         {value}
       </h3>
       <p className="text-xs text-gray-500 mt-2">{note}</p>
+      
     </div>
   );
 }
@@ -614,7 +632,92 @@ function SummaryTable({ items }: { items: MenuItem[] }) {
     </div>
   );
 }
+function DashboardCharts({ items }: { items: MenuItem[] }) {
+  const cleanItems = aggregateItems(items);
 
+  const itemChartData = cleanItems.map((item) => {
+    const m = metrics(item);
+
+    return {
+      name: item.name,
+      revenue: m.revenue,
+      cost: m.totalCost,
+      profit: m.profit,
+      margin: Number(m.margin.toFixed(1)),
+      className: classify(item, cleanItems),
+    };
+  });
+
+  const classData = ["Star", "Plowhorse", "Puzzle", "Dog"].map((name) => ({
+    name,
+    value: cleanItems.filter((item) => classify(item, cleanItems) === name).length,
+  }));
+
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-6">
+      <div className="bg-white p-5 rounded-3xl shadow border border-gray-100">
+        <h3 className="font-bold text-xl text-tealDeep mb-4">
+          Revenue vs Cost by Item
+        </h3>
+
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={itemChartData}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="revenue" name="Revenue" />
+              <Bar dataKey="cost" name="Cost" />
+              <Bar dataKey="profit" name="Profit" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white p-5 rounded-3xl shadow border border-gray-100">
+        <h3 className="font-bold text-xl text-tealDeep mb-4">
+          Margin % by Item
+        </h3>
+
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={itemChartData}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="margin" name="Margin %" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-white p-5 rounded-3xl shadow border border-gray-100 xl:col-span-2">
+        <h3 className="font-bold text-xl text-tealDeep mb-4">
+          Menu Classification Split
+        </h3>
+
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={classData}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={110}
+                label
+              >
+                {classData.map((_, index) => (
+                  <Cell key={index} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
 function Dashboard() {
   const [items, setItems] = useState<MenuItem[]>(getItems());
 
@@ -661,7 +764,8 @@ function Dashboard() {
           </p>
         </div>
       </div>
-
+      <DashboardCharts items={items} />
+      
       <SummaryTable items={items} />
     </Layout>
   );
@@ -1551,6 +1655,101 @@ function SensitivitySimulator() {
     </Layout>
   );
 }
+function ReportPage() {
+  const company = getCompany();
+  const items = aggregateItems(getItems());
+
+  const totalRevenue = items.reduce((sum, item) => sum + metrics(item).revenue, 0);
+  const totalCost = items.reduce((sum, item) => sum + metrics(item).totalCost, 0);
+  const totalProfit = totalRevenue - totalCost;
+  const margin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+
+  async function downloadPDF() {
+    const report = document.getElementById("client-report");
+    if (!report) return;
+
+    const canvas = await html2canvas(report, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+
+    const pdfWidth = 210;
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+    pdf.save("MenuGear_Client_Report.pdf");
+  }
+
+  return (
+    <Layout>
+      <div className="flex justify-between items-center mb-5">
+        <div>
+          <h2 className="text-3xl font-extrabold text-tealDeep">Client Report</h2>
+          <p className="text-darkGray">Executive menu performance report</p>
+        </div>
+
+        <button
+          onClick={downloadPDF}
+          className="bg-tealDeep text-white px-6 py-3 rounded-2xl font-bold shadow"
+        >
+          Export PDF
+        </button>
+      </div>
+
+      <div id="client-report" className="bg-white p-8 rounded-3xl shadow">
+        <h1 className="text-3xl font-extrabold text-tealDeep mb-2">
+          MenuGear Executive Report
+        </h1>
+
+        <p className="text-darkGray mb-6">
+          {company?.brandName} • {company?.city} • {company?.segment}
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Kpi title="Revenue" value={`SAR ${totalRevenue.toLocaleString()}`} note="Total menu sales" />
+          <Kpi title="Cost" value={`SAR ${totalCost.toLocaleString()}`} note="Recipe cost" />
+          <Kpi title="Profit" value={`SAR ${totalProfit.toLocaleString()}`} note="Gross profit" />
+          <Kpi title="Margin" value={`${margin.toFixed(1)}%`} note="Gross margin" />
+        </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                </div>
+
+        <h3 className="text-xl font-bold text-tealDeep mt-6 mb-3">
+            Performance Breakdown
+          </h3>
+        <div className="mb-6">
+          <h3 className="text-xl font-bold text-tealDeep mb-3">Executive Summary</h3>
+          <p className="text-darkGray">
+            This report summarizes menu profitability, item performance, pricing opportunities,
+            and improvement priorities based on uploaded menu data.
+          </p>
+        </div>
+
+        <SummaryTable items={items} />
+
+        <div className="mt-6">
+          <h3 className="text-xl font-bold text-tealDeep mb-3">AI Recommendations</h3>
+
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.name} className="border rounded-2xl p-4">
+                <p className="font-bold">{item.name}</p>
+                <p className="text-sm">{recommendation(item, items)}</p>
+                <p className="text-sm text-tealDeep font-semibold">
+                  {aiPricingSuggestion(item, items)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+}
 function SettingsPage() {
   function resetCompany() {
     localStorage.removeItem("menugear_company");
@@ -1602,6 +1801,7 @@ export default function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/gcc-intelligence" element={<GCCIntelligence />} />
             <Route path="/sensitivity" element={<SensitivitySimulator />} />
+            <Route path="/report" element={<ReportPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Dashboard />} />
           </>
