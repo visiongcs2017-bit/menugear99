@@ -1681,12 +1681,10 @@ function CostingPage() {
 
   function updateIngredient(index: number, field: keyof IngredientLine, value: string) {
     const updated = [...ingredients];
-
     updated[index] = {
       ...updated[index],
       [field]: field === "ingredient" ? value : Number(value),
     } as IngredientLine;
-
     setIngredients(updated);
   }
 
@@ -1699,21 +1697,20 @@ function CostingPage() {
   }
 
   const rawRecipeCost = ingredients.reduce(
-  (sum, line) => sum + line.qty * line.unitCost,
-  0
-);
+    (sum, line) => sum + line.qty * line.unitCost,
+    0
+  );
 
-const wasteCost = rawRecipeCost * (wastePercent / 100);
-const totalRecipeCost = rawRecipeCost + wasteCost;
+  const wasteCost = rawRecipeCost * (wastePercent / 100);
+  const totalRecipeCost = rawRecipeCost + wasteCost;
+  const costPerPortion = portionSize > 0 ? totalRecipeCost / portionSize : totalRecipeCost;
 
-const costPerPortion = portionSize > 0 ? totalRecipeCost / portionSize : totalRecipeCost;
+  const suggestedSellingPrice =
+    targetMargin < 100 ? costPerPortion / (1 - targetMargin / 100) : 0;
 
-const suggestedSellingPrice =
-  targetMargin < 100 ? costPerPortion / (1 - targetMargin / 100) : 0;
+  const foodCostPercent =
+    suggestedSellingPrice > 0 ? (costPerPortion / suggestedSellingPrice) * 100 : 0;
 
-const foodCostPercent =
-  suggestedSellingPrice > 0 ? (costPerPortion / suggestedSellingPrice) * 100 : 0;
-    
   function saveAsMenuItem() {
     if (!itemName.trim()) {
       alert("Please enter menu item name.");
@@ -1727,16 +1724,15 @@ const foodCostPercent =
 
     const existingItems = getItems();
 
-const newMenuItem: MenuItem = {
-  name: itemName,
-  category: category,
-  sellingPrice: Number(suggestedSellingPrice.toFixed(2)),
-  recipeCost: Number(totalRecipeCost.toFixed(2)),
-  unitsSold: 0,
-};
+    const newMenuItem: MenuItem = {
+      name: itemName,
+      category,
+      sellingPrice: Number(suggestedSellingPrice.toFixed(2)),
+      recipeCost: Number(costPerPortion.toFixed(2)),
+      unitsSold: 0,
+    };
 
     saveItems([...existingItems, newMenuItem]);
-
     alert(`${itemName} added to Menu Items using calculated costing.`);
   }
 
@@ -1745,106 +1741,57 @@ const newMenuItem: MenuItem = {
       <h2 className="text-3xl font-extrabold text-tealDeep mb-2">
         Menu Costing Engine
       </h2>
-<div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-  <input
-    className="border p-3 rounded-xl"
-    placeholder="Menu item name"
-    value={itemName}
-    onChange={(e) => setItemName(e.target.value)}
-  />
 
-  <select
-    className="border p-3 rounded-xl"
-    value={category}
-    onChange={(e) => setCategory(e.target.value)}
-  >
-    <option>Main Course</option>
-    <option>Starter</option>
-    <option>Dessert</option>
-    <option>Beverage</option>
-    <option>Combo</option>
-    <option>Catering</option>
-    <option>Cloud Kitchen</option>
-  </select>
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div>
+          <label className="text-xs text-gray-500">Menu Item Name</label>
+          <input className="border p-3 rounded-xl w-full" placeholder="Menu item name" value={itemName} onChange={(e) => setItemName(e.target.value)} />
+        </div>
 
-  <input
-    className="border p-3 rounded-xl"
-    type="number"
-    placeholder="Portions produced"
-    value={portionSize}
-    onChange={(e) => setPortionSize(Number(e.target.value))}
-  />
+        <div>
+          <label className="text-xs text-gray-500">Category</label>
+          <select className="border p-3 rounded-xl w-full" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option>Main Course</option>
+            <option>Starter</option>
+            <option>Dessert</option>
+            <option>Beverage</option>
+            <option>Combo</option>
+            <option>Catering</option>
+            <option>Cloud Kitchen</option>
+          </select>
+        </div>
 
-  <input
-    className="border p-3 rounded-xl"
-    type="number"
-    placeholder="Waste %"
-    value={wastePercent}
-    onChange={(e) => setWastePercent(Number(e.target.value))}
-  />
+        <div>
+          <label className="text-xs text-gray-500">Portions Produced</label>
+          <input className="border p-3 rounded-xl w-full" type="number" value={portionSize} onChange={(e) => setPortionSize(Number(e.target.value))} />
+        </div>
 
-  <input
-    className="border p-3 rounded-xl"
-    type="number"
-    placeholder="Target margin %"
-    value={targetMargin}
-    onChange={(e) => setTargetMargin(Number(e.target.value))}
-  />
-</div>
+        <div>
+          <label className="text-xs text-gray-500">Waste %</label>
+          <input className="border p-3 rounded-xl w-full" type="number" value={wastePercent} onChange={(e) => setWastePercent(Number(e.target.value))} />
+        </div>
+
+        <div>
+          <label className="text-xs text-gray-500">Target Margin %</label>
+          <input className="border p-3 rounded-xl w-full" type="number" value={targetMargin} onChange={(e) => setTargetMargin(Number(e.target.value))} />
+        </div>
+      </div>
 
       <div className="bg-white p-6 rounded-3xl shadow mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-xl text-tealDeep">
-            Ingredients
-          </h3>
-
-          <button
-            onClick={addIngredient}
-            className="bg-tealDeep text-white px-4 py-2 rounded-xl font-bold"
-          >
+          <h3 className="font-bold text-xl text-tealDeep">Ingredients</h3>
+          <button onClick={addIngredient} className="bg-tealDeep text-white px-4 py-2 rounded-xl font-bold">
             Add Ingredient
           </button>
         </div>
 
         <div className="space-y-3">
           {ingredients.map((line, index) => (
-            <div
-              key={index}
-              className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center"
-            >
-              <input
-                className="border p-3 rounded-xl md:col-span-2"
-                placeholder="Ingredient name"
-                value={line.ingredient}
-                onChange={(e) =>
-                  updateIngredient(index, "ingredient", e.target.value)
-                }
-              />
-
-              <input
-                className="border p-3 rounded-xl"
-                type="number"
-                placeholder="Qty"
-                value={line.qty}
-                onChange={(e) =>
-                  updateIngredient(index, "qty", e.target.value)
-                }
-              />
-
-              <input
-                className="border p-3 rounded-xl"
-                type="number"
-                placeholder="Unit cost"
-                value={line.unitCost}
-                onChange={(e) =>
-                  updateIngredient(index, "unitCost", e.target.value)
-                }
-              />
-
-              <button
-                onClick={() => removeIngredient(index)}
-                className="border px-4 py-3 rounded-xl font-bold text-coral"
-              >
+            <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
+              <input className="border p-3 rounded-xl md:col-span-2" placeholder="Ingredient name" value={line.ingredient} onChange={(e) => updateIngredient(index, "ingredient", e.target.value)} />
+              <input className="border p-3 rounded-xl" type="number" placeholder="Qty" value={line.qty} onChange={(e) => updateIngredient(index, "qty", e.target.value)} />
+              <input className="border p-3 rounded-xl" type="number" placeholder="Unit cost" value={line.unitCost} onChange={(e) => updateIngredient(index, "unitCost", e.target.value)} />
+              <button onClick={() => removeIngredient(index)} className="border px-4 py-3 rounded-xl font-bold text-coral">
                 Remove
               </button>
             </div>
@@ -1853,34 +1800,14 @@ const newMenuItem: MenuItem = {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Kpi
-          title="Recipe Cost"
-          value={`SAR ${totalRecipeCost.toFixed(2)}`}
-          note="Total ingredient cost"
-        />
-
-        <Kpi
-          title="Suggested Price"
-          value={`SAR ${suggestedSellingPrice.toFixed(2)}`}
-          note="Based on target margin"
-        />
-
-        <Kpi
-          title="Target Margin"
-          value={`${targetMargin.toFixed(1)}%`}
-          note="Desired gross margin"
-        />
-
-        <Kpi
-          title="Food Cost %"
-          value={`${foodCostPercent.toFixed(1)}%`}
-          note="Cost as percentage of price"
-        />
+        <Kpi title="Raw Recipe Cost" value={`SAR ${rawRecipeCost.toFixed(2)}`} note="Before waste adjustment" />
+        <Kpi title="Cost Per Portion" value={`SAR ${costPerPortion.toFixed(2)}`} note="Including waste" />
+        <Kpi title="Suggested Price" value={`SAR ${suggestedSellingPrice.toFixed(2)}`} note="Based on target margin" />
+        <Kpi title="Food Cost %" value={`${foodCostPercent.toFixed(1)}%`} note="Cost as percentage of price" />
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow border-l-4 border-goldWarm">
         <h3 className="font-bold text-xl mb-2">AI Costing Comment</h3>
-
         <p className="text-darkGray mb-4">
           {foodCostPercent > 35
             ? "Food cost is high. Review supplier cost, portion size, or selling price before launch."
@@ -1889,10 +1816,7 @@ const newMenuItem: MenuItem = {
             : "Food cost is within a reasonable range. Monitor supplier price changes regularly."}
         </p>
 
-        <button
-          onClick={saveAsMenuItem}
-          className="bg-tealDeep text-white px-6 py-3 rounded-2xl font-bold shadow"
-        >
+        <button onClick={saveAsMenuItem} className="bg-tealDeep text-white px-6 py-3 rounded-2xl font-bold shadow">
           Save as Menu Item
         </button>
       </div>
